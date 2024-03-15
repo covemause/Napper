@@ -1,0 +1,36 @@
+version: "3.9"
+services:
+  mysql:
+    image: mysql:latest
+    ports:
+      - 3306:3306
+    volumes:
+      - ./data:/var/lib/mysql
+    networks:
+      - net
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: WebApiDB
+      MYSQL_USER: user
+      MYSQL_PASSWORD: userpass
+    restart: always
+
+  napper:
+    ports:
+      - 80:80
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - ConnectionStrings__DbTypeName=MySQL
+      - ConnectionStrings__Default=Server=mysql;Port=3306;Uid=user;Pwd=userpass;Database=WebApiDB;
+      - ASPNETCORE_URLS=http://+5025
+    container_name: napper_api
+    networks:
+      - net
+    depends_on:
+      - mysql
+
+networks:
+  net:
+    driver: bridge
