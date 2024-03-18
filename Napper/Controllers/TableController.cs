@@ -4,6 +4,8 @@
 
 using Napper.Service;
 
+using System.Text.Json;
+
 namespace Napper.Controllers
 {
     [Route("api/[controller]")]
@@ -42,11 +44,21 @@ namespace Napper.Controllers
             return (dataList == null) ? NotFound(_napperService.Message) : Ok(dataList);
         }
 
-        // POST api/<TableController>
-        [HttpPost]
-        public void Post([FromBody] string value)
+        // POST api/<TableController>/Users
+        [HttpPost("{tablename}")]
+        public IActionResult Post(string tablename, [FromBody] JsonElement element)
         {
-            throw new NotSupportedException();
+            if (!QueryFomatter.TryJsonElementArrayToDictinary(element, out var parameters))
+            {
+                return BadRequest("QueryFomatter Error.");
+            }
+
+            if (parameters == null)
+            {
+                return BadRequest("parameters Error.");
+            }
+
+            return _napperService.InsertQuery(tablename, parameters.First()) ?  Ok() : NotFound(_napperService.Message);
         }
 
         // PUT api/<TableController>/5

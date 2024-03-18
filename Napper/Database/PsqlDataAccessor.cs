@@ -1,6 +1,7 @@
 ﻿using Npgsql;
 
 using System.Data;
+using System.Data.SqlClient;
 
 namespace Napper.Database
 {
@@ -9,19 +10,18 @@ namespace Napper.Database
         NpgsqlConnection? _connection = null;
         NpgsqlCommand? _command = null;
         string _connectionString = "";
-        string _errorMessage = "";
 
         public ConnectionState State => (_connection == null) ? ConnectionState.Closed : _connection.State;
-
-        public string ErrorMessage => _errorMessage;
 
         public PsqlDataAccessor(string connectionString)
         {
             _connectionString = connectionString;
         }
 
-        public bool OpenConnection()
+        public bool TryOpenConnection(out string errorMessage)
         {
+            errorMessage = string.Empty;
+
             try
             {
                 _connection = new NpgsqlConnection(_connectionString);
@@ -31,7 +31,7 @@ namespace Napper.Database
 
             catch (Exception ex)
             {
-                _errorMessage = ex.Message;
+                errorMessage = ex.Message;
             }
 
             return false;
@@ -55,15 +55,40 @@ namespace Napper.Database
 
             return !isOneRecord ? query : query + " LIMIT 1";
         }
-
-        public bool InitCommand(string query, string oneRecordQuery = "", Dictionary<string, string>? parameters = null)
+        public string GetInsertQuery(string tablename, Dictionary<string, object?> parameters)
         {
-            if (_connection == null) OpenConnection();
+            var query = "INSERT INTO " + tablename + " ({0}) VALUES ({1})";
+
+            var fields = "";
+            var fieldParams = "";
+
+            foreach (var item in parameters)
+            {
+                if (fields == "")
+                {
+                    fields = item.Key;
+                    fieldParams = "@" + item.Key;
+                }
+                else
+                {
+                    fields += ", " + item.Key;
+                    fieldParams += ", @" + item.Key;
+                }
+            }
+
+            return string.Format(query, fields, fieldParams);
+        }
+
+        public bool TryInitCommand(string query, out string errorMessage, bool isWhere = false, string oneRecordQuery = "", Dictionary<string, object?>? parameters = null)
+        {
+            errorMessage = string.Empty;
+
+            if (_connection == null) return false;
             var fields = new Dictionary<string, Type>();
 
             if (parameters != null && oneRecordQuery == "")
             {
-                _errorMessage = "OneRecordQuery is Empty.";
+                errorMessage = "OneRecordQuery is Empty.";
                 return false;
             }
 
@@ -89,7 +114,7 @@ namespace Napper.Database
                 }
                 catch (Exception ex)
                 {
-                    _errorMessage = ex.Message;
+                    errorMessage = ex.Message;
                     return false;
                 }
 
@@ -98,7 +123,7 @@ namespace Napper.Database
             _command = new NpgsqlCommand();
             var whereSql = "";
             // データがあればパラメータをフィールドの型でキャストする
-            if (parameters != null && fields.Count > 0)
+            if (isWhere && parameters != null && fields.Count > 0)
             {
                 try
                 {
@@ -112,21 +137,28 @@ namespace Napper.Database
                             }
                             else
                             {
-                                whereSql = " AND " + parameter.Key + " = @" + parameter.Key;
+                                whereSql += " AND " + parameter.Key + " = @" + parameter.Key;
                             }
                             _command.Parameters.Add(new NpgsqlParameter("@" + parameter.Key, Convert.ChangeType(parameter.Value, fields[parameter.Key])));
                         }
                         else
                         {
-                            _errorMessage = $"Fields NotFound :{parameter.Key} ";
+                            errorMessage = $"Fields NotFound :{parameter.Key} ";
                             return false;
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _errorMessage = ex.Message;
+                    errorMessage = ex.Message;
                     return false;
+                }
+            }
+            else if (!isWhere && parameters != null)
+            {
+                foreach (var item in parameters)
+                {
+                    _command.Parameters.Add(new SqlParameter("@" + item.Key, item.Value));
                 }
             }
 
@@ -135,12 +167,14 @@ namespace Napper.Database
 
             return true;
         }
-        public List<Dictionary<string, object>>? SelectExecute()
+        public bool TrySelectExecute(out List<Dictionary<string, object>> result, out string errorMessage)
         {
-            var result = new List<Dictionary<string, object>>();
 
-            if (_connection == null) OpenConnection();
-            if (_command == null) throw new NullReferenceException(nameof(SelectExecute));
+            if (_connection == null || _command == null) 
+                throw new NullReferenceException(nameof(TrySelectExecute));
+
+            errorMessage = string.Empty;
+            result = new List<Dictionary<string, object>>();
 
             try
             {
@@ -159,31 +193,50 @@ namespace Napper.Database
                     }
                 }
 
-                return result;
+                return true;
             }
             catch (Exception ex)
             {
-                _errorMessage = ex.Message;
+                errorMessage = ex.Message;
+                return false;
             }
 
-            return null;
         }
 
-        public bool CreateExecute()
+        public bool TryInsertExecute(out string errorMessage)
+        {
+            if (_connection == null || _command == null)
+                throw new NullReferenceException(nameof(TrySelectExecute));
+
+            errorMessage = string.Empty;
+
+            var result = false;
+
+            try
+            {
+                if (_command.ExecuteNonQuery() == 1)
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+            }
+
+            return result;
+        }
+
+        public bool TryDeleteExecute(out string errorMessage)
         {
             throw new NotImplementedException();
         }
 
-        public bool DeleteExecute()
-        {
-            throw new NotImplementedException();
-        }
 
 
 
 
-
-        public bool UpdateExecute()
+        public bool TryUpdateExecute(out string errorMessage)
         {
             throw new NotImplementedException();
         }
