@@ -90,11 +90,6 @@ namespace Napper.Database
             if (_connection == null) return false;
             var fields = new Dictionary<string, Type>();
 
-            if (parameters != null && oneRecordQuery == "")
-            {
-                errorMessage = "OneRecordQuery is Empty.";
-                return false;
-            }
 
             // パラメーターがあれば1回SQLを発行して、各フィールドの型を覚えておく。
             if (parameters != null && oneRecordQuery != "")
