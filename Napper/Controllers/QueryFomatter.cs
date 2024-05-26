@@ -10,17 +10,17 @@ namespace Napper.Controllers
             if (string.IsNullOrEmpty(queryString)) return true;
 
             var parameters = queryString.Split("&");
-            values = new Dictionary<string, object?>();
+            values = [];
 
             foreach (var item in parameters)
             {
                 if (string.IsNullOrEmpty(item)) continue;
-                var target = item[0] == '?' ? item.Substring(1) : item;
+                var target = item[0] == '?' ? item[1..] : item;
 
                 var equalPos = target.IndexOf('=');
                 if (equalPos == -1) { return false; }
-                var key = target.Substring(0, equalPos);
-                var val = target.Substring(equalPos + 1);
+                var key = target[..equalPos];
+                var val = target[(equalPos + 1)..];
 
                 values.Add(key, val);
             }
@@ -36,7 +36,7 @@ namespace Napper.Controllers
                 return false;
             }
 
-            values = new Dictionary<string, object?>();
+            values = [];
 
             foreach (var item in element.EnumerateObject())
             {
@@ -70,7 +70,7 @@ namespace Napper.Controllers
                             values.Add(item.Name, decimalValue);
                             break;
                         }
-                        throw new ArgumentOutOfRangeException();
+                        throw new ArgumentOutOfRangeException(null, nameof(item.Name));
                     case JsonValueKind.True:
                     case JsonValueKind.False:
                         values.Add(item.Name, item.Value.GetBoolean());
@@ -97,7 +97,7 @@ namespace Napper.Controllers
                 return false;
             }
 
-            values = new List<Dictionary<string, object?>>();
+            values = [];
 
             foreach (var item in element.EnumerateArray())
             {

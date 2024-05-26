@@ -4,32 +4,22 @@ using Microsoft.Extensions.Options;
 using Napper.Database;
 
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Napper.Service
 {
-    public sealed class NapperService
+    public sealed class NapperService(IOptions<NapperOption> option)
     {
-        private IDataAccessor _accessor;
+        private readonly IDataAccessor _accessor = option.Value.DbTypeName switch
+        {
+            "MySQL" => new MySqlDataAccessor(option.Value.ConnectionString),
+            "SQLServer" => new SqlServerDataAccessor(option.Value.ConnectionString),
+            "Postgresql" => new PsqlDataAccessor(option.Value.ConnectionString),
+            _ => throw new NotSupportedException($"Not Support DbType :{option.Value.DbTypeName}"),
+        };
 
         public string Message { get; private set; } = "";
 
-        public NapperService(IOptions<NapperOption> option)
-        {
-            switch (option.Value.DbTypeName)
-            {
-                case "MySQL":
-                    _accessor = new MySqlDataAccessor(option.Value.ConnectionString);
-                    break;
-                case "SQLServer":
-                    _accessor = new SqlServerDataAccessor(option.Value.ConnectionString);
-                    break;
-                case "Postgresql":
-                    _accessor = new PsqlDataAccessor(option.Value.ConnectionString);
-                    break;
-                default:
-                    throw new NotSupportedException($"Not Support DbType :{option.Value.DbTypeName}");
-            }
-        }
         ~NapperService()
         {
             _accessor.CloseConnection();
@@ -38,8 +28,7 @@ namespace Napper.Service
 
         public List<Dictionary<string, object>>? SelectQuery(string tablename, Dictionary<string, object?>? parameters = null)
         {
-            string errorMessage = "";
-            if (!_accessor.TryOpenConnection(out errorMessage))
+            if (!_accessor.TryOpenConnection(out string errorMessage))
             {
                 this.Message = errorMessage;
                 return null;
@@ -55,9 +44,7 @@ namespace Napper.Service
                 return null;
             }
 
-            List<Dictionary<string, object>> result = new List<Dictionary<string, object>>();
-
-            if (!_accessor.TrySelectExecute(out result, out errorMessage))
+            if (!_accessor.TrySelectExecute(out List<Dictionary<string, object>> result, out errorMessage))
             {
                 this.Message = errorMessage;
                 _accessor.CloseConnection();
@@ -69,8 +56,7 @@ namespace Napper.Service
 
         public IEnumerable<string>? TableAllQuery()
         {
-            string errorMessage = "";
-            if (!_accessor.TryOpenConnection(out errorMessage))
+            if (!_accessor.TryOpenConnection(out string errorMessage))
             {
                 this.Message = errorMessage;
                 return null;
@@ -96,13 +82,9 @@ namespace Napper.Service
 
             if (dataList != null)
             {
-                result = new List<string>();
-
-                for(var i = 0; i < dataList.Count; i++)
-
-                {
-                    result.Add(Convert.ToString(dataList[i].First().Value) ?? "");
-                }
+                result = [];
+                result.AddRange(from Dictionary<string, object> dateItem in dataList
+                                select Convert.ToString(dateItem.First().Value) ?? "");
             }
 
             return result;
@@ -111,8 +93,7 @@ namespace Napper.Service
 
         public bool InsertQuery(string tablename, Dictionary<string, object?> parameters)
         {
-            string errorMessage = "";
-            if (!_accessor.TryOpenConnection(out errorMessage))
+            if (!_accessor.TryOpenConnection(out string errorMessage))
             {
                 this.Message = errorMessage;
                 return false;

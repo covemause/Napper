@@ -3,18 +3,13 @@ using System.Data.SqlClient;
 
 namespace Napper.Database
 {
-    public class SqlServerDataAccessor : IDataAccessor
+    public class SqlServerDataAccessor(string connectionString) : IDataAccessor
     {
         SqlConnection? _connection = null;
         SqlCommand? _command = null;
-        string _connectionString = "";
+        private readonly string _connectionString = connectionString;
 
         public ConnectionState State => (_connection == null) ? ConnectionState.Closed : _connection.State;
-
-        public SqlServerDataAccessor(string connectionString)
-        {
-            _connectionString = connectionString;
-        }
 
         public bool TryOpenConnection(out string errorMessage)
         {
@@ -126,7 +121,7 @@ namespace Napper.Database
                 {
                     foreach (var parameter in parameters)
                     {
-                        if (fields.ContainsKey(parameter.Key))
+                        if (fields.TryGetValue(parameter.Key, out Type? value))
                         {
                             if (whereSql == "")
                             {
@@ -136,7 +131,7 @@ namespace Napper.Database
                             {
                                 whereSql += " AND " + parameter.Key + " = @" + parameter.Key;
                             }
-                            _command.Parameters.Add(new SqlParameter("@" + parameter.Key, Convert.ChangeType(parameter.Value, fields[parameter.Key])));
+                            _command.Parameters.Add(new SqlParameter("@" + parameter.Key, Convert.ChangeType(parameter.Value, value)));
                         }
                         else
                         {
@@ -173,7 +168,7 @@ namespace Napper.Database
                 throw new NullReferenceException(nameof(TrySelectExecute));
 
             errorMessage = string.Empty;
-            result = new List<Dictionary<string, object>>();
+            result = [];
 
             try
             {

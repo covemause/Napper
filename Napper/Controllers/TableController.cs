@@ -10,14 +10,9 @@ namespace Napper.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class TableController : ControllerBase
+    public class TableController(NapperService NapperService) : ControllerBase
     {
-        private NapperService _napperService;
-
-        public TableController(NapperService NapperService)
-        {
-            _napperService = NapperService;
-        }
+        private readonly NapperService _napperService = NapperService;
 
         // GET: api/<TableController>
         [HttpGet]

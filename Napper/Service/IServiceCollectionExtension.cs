@@ -10,8 +10,8 @@
             connectionString = config?.GetConnectionString("Default");
             dbTypeName = config?.GetConnectionString("DbTypeName");
 
-            if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));
-            if (dbTypeName == null) throw new ArgumentNullException(nameof(dbTypeName));
+            if (connectionString == null) throw new ArgumentNullException(null, nameof(connectionString));
+            if (dbTypeName == null) throw new ArgumentNullException(null, nameof(dbTypeName));
 
             services.Configure<NapperOption>(options =>
             {

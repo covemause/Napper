@@ -5,18 +5,13 @@ using System.Data.SqlClient;
 
 namespace Napper.Database
 {
-    public class PsqlDataAccessor : IDataAccessor
+    public class PsqlDataAccessor(string connectionString) : IDataAccessor
     {
         NpgsqlConnection? _connection = null;
         NpgsqlCommand? _command = null;
-        string _connectionString = "";
+        private readonly string _connectionString = connectionString;
 
         public ConnectionState State => (_connection == null) ? ConnectionState.Closed : _connection.State;
-
-        public PsqlDataAccessor(string connectionString)
-        {
-            _connectionString = connectionString;
-        }
 
         public bool TryOpenConnection(out string errorMessage)
         {
@@ -123,7 +118,7 @@ namespace Napper.Database
                 {
                     foreach (var parameter in parameters)
                     {
-                        if (fields.ContainsKey(parameter.Key))
+                        if (fields.TryGetValue(parameter.Key, out Type? value))
                         {
                             if (whereSql == "")
                             {
@@ -133,7 +128,7 @@ namespace Napper.Database
                             {
                                 whereSql += " AND " + parameter.Key + " = @" + parameter.Key;
                             }
-                            _command.Parameters.Add(new NpgsqlParameter("@" + parameter.Key, Convert.ChangeType(parameter.Value, fields[parameter.Key])));
+                            _command.Parameters.Add(new NpgsqlParameter("@" + parameter.Key, Convert.ChangeType(parameter.Value, value)));
                         }
                         else
                         {
@@ -168,7 +163,7 @@ namespace Napper.Database
                 throw new NullReferenceException(nameof(TrySelectExecute));
 
             errorMessage = string.Empty;
-            result = new List<Dictionary<string, object>>();
+            result = [];
 
             try
             {
